@@ -4,7 +4,8 @@ const apiKey = process.env.GEMINI_API_KEY;
 
 export const getAI = () => {
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not set");
+    throw new("AIzaSyCQlOH3KAEPdb1sZ96NyozbfIUDNLvNI1E
+ is set");
   }
   return new GoogleGenAI({ apiKey });
 };
