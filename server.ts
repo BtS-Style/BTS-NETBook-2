@@ -1,3 +1,4 @@
+import process from "node:process"; // Zásadní pro Deno/Node hybrid
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -17,10 +18,10 @@ if (!fs.existsSync("uploads")) {
 }
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => { // Přidáno podtržítko pro linter
     cb(null, "uploads/");
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => { // Přidáno podtržítko pro linter
     cb(null, Date.now() + "-" + file.originalname);
   }
 });
@@ -71,11 +72,11 @@ async function startServer() {
   app.get("/api/auth/url", (req, res) => {
     const provider = req.query.provider;
     const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
-    
+
     if (provider === "google") {
       const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
       if (!clientId) return res.status(400).json({ error: "Google Client ID not configured" });
-      
+
       const params = new URLSearchParams({
         client_id: clientId,
         redirect_uri: `${appUrl}/auth/callback`,
@@ -91,8 +92,6 @@ async function startServer() {
   });
 
   app.get("/auth/callback", (req, res) => {
-    // In a real app, we'd exchange the code for tokens here.
-    // For this demo, we'll just send a success message to the opener.
     res.send(`
       <html>
         <body>
@@ -111,7 +110,7 @@ async function startServer() {
   });
 
   // API Routes
-  app.get("/api/posts", (req, res) => {
+  app.get("/api/posts", (_req, res) => { // Přidáno podtržítko pro linter
     const posts = db.prepare("SELECT * FROM posts ORDER BY created_at DESC").all();
     res.json(posts);
   });
@@ -156,7 +155,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
+    app.get("*", (_req, res) => { // Přidáno podtržítko pro linter
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
