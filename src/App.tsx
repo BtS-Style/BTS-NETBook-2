@@ -29,6 +29,7 @@ import {
   generateAIInsight
 } from "@/src/services/gemini";
 
+import { Analytics } from "@vercel/analytics/react";
 declare global {
   interface Window {
     aistudio: {
@@ -3824,6 +3825,7 @@ export default function App() {
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
+      <Analytics />
     </div>
   );
 }
