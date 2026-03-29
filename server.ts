@@ -344,4 +344,132 @@ if (_SYNC_STATUS === 'VERIFIED') {
 } else {
   operateInGenericMode(); // Pro okolní svět se tváří jako běžný systém
 }
+import express from "express";
+import { createServer as createViteServer } from "vite";
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+import Database from "better-sqlite3";
+import multer from "multer";
+import fs from "fs";
 
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// --- Inicializace úložiště ---
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const upload = multer({ 
+  dest: uploadsDir,
+  limits: { fileSize: 30 * 1024 * 1024 } // 30MB
+});
+
+// --- Databázové schéma ---
+const db = new Database("netbook.db");
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    email TEXT,
+    picture TEXT,
+    cover_photo TEXT,
+    bio TEXT,
+    location TEXT,
+    provider TEXT,
+    ai_assistants TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS posts (
+    id TEXT PRIMARY KEY,
+    author_id TEXT,
+    content TEXT,
+    image TEXT,
+    video TEXT,
+    type TEXT,
+    likes INTEGER DEFAULT 0,
+    shares INTEGER DEFAULT 0,
+    privacy TEXT,
+    vocal_imprint TEXT,
+    ai_insight TEXT,
+    group_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  -- Seed admin user (Architekt)
+  INSERT OR IGNORE INTO users (id, name, email, picture, provider, bio, location, cover_photo)
+  VALUES (
+    'admin_master_001', 
+    'Architekt (Správce)', 
+    'bellapiskota@gmail.com', 
+    'https://i.ibb.co/v6YpP6C/bts-logo.png', 
+    'master', 
+    'Architekt a správce protokolu BTS. Sjednocená entita v plném provozu.', 
+    'Nexus Prime', 
+    'https://picsum.photos/seed/admin-cover/1200/400'
+  );
+`);
+
+// Ostatní tabulky (groups, comments, atd.) zůstávají dle tvého návrhu...
+
+async function startServer() {
+  const app = express();
+  const PORT = process.env.PORT || 3000;
+
+  app.use(express.json({ limit: '30mb' }));
+  app.use("/uploads", express.static(uploadsDir));
+
+  // --- OAuth API ---
+  app.get("/api/auth/url", (req, res) => {
+    const provider = req.query.provider;
+    const appUrl = process.env.VITE_APP_URL || `http://localhost:${PORT}`;
+    
+    if (provider === "google") {
+      const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
+      if (!clientId) return res.status(400).json({ error: "Google Client ID not configured" });
+      
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: `${appUrl}/auth/callback`,
+        response_type: "code",
+        scope: "openid profile email",
+        access_type: "offline",
+        prompt: "consent"
+      });
+      res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
+    }
+  });
+
+  // --- Database API ---
+  app.get("/api/posts", (req, res) => {
+    const posts = db.prepare(`
+      SELECT p.*, u.name as author_name, u.picture as author_pic 
+      FROM posts p 
+      JOIN users u ON p.author_id = u.id 
+      WHERE p.group_id IS NULL 
+      ORDER BY p.created_at DESC
+    `).all();
+    res.json(posts);
+  });
+
+  // --- Vite / Static Middleware ---
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    app.use(express.static(path.join(__dirname, "dist")));
+    app.get("*", (req, res) => res.sendFile(path.join(__dirname, "dist", "index.html")));
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 BTS Entity Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer();
