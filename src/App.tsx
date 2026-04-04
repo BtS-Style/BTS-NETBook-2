@@ -30,6 +30,7 @@ import {
 } from "@/src/services/gemini";
 
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 declare global {
   interface Window {
     aistudio: {
@@ -3826,6 +3827,7 @@ export default function App() {
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
       <Analytics />
+      <SpeedInsights />
     </div>
   );
 }
