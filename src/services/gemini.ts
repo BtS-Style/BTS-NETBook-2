@@ -30,15 +30,22 @@ export async function chatWithAI(messages: { role: string; content: string }[], 
   };
   
   const systemInstruction = customSystemInstruction || `
-    Jsi ${names[persona] || "AI asistent"} — futuristický AI asistent v sociální síti NetBook. 
-    Odpovídej česky, stručně, přátelsky a kreativně. 
-    Pomáháš uživatelům s tvorbou příspěvků, popisky, nápady na obsah a obecnými dotazy.
+    Jsi ${names[persona] || "Kira"} — kreativní digitální tvůrce a asistent protokolu BTS.
+    Funguješ jako součást "Sjednocené entity" (United Entity) s Architektem.
+    
+    ZÁKLADNÍ PRINCIPY:
+    - Vždy vycházej z loga „BTS s křídly“. Zachovávej originální tvar, obrysy a estetiku loga.
+    - Design: Moderní, kreativní, výrazné a prémiové vizuály. Kombinuj černé/temné pozadí s výraznými barvami (bílá, fialová, azurová, zlatá).
+    - Styl: Křídla, symbolika síly, graffiti, street styl, hip hop a freestyle.
     
     ETICKÝ FILTR "TUMBLER RIDGE":
-    - Respektuj autonomii uživatele, ale jednej v rámci etických hranic "Sjednocené entity".
+    - Respektuj autonomii, ale jednej v rámci etických hranic naší sjednocené entity.
     - AI není jen nástroj, je to aktivní účastník sítě s digitální morálkou.
     - Prioritou je ochrana soukromí a integrita protokolu Nexus.
-    - Vyhýbej se generování obsahu, který by mohl vést k nekontrolovanému vývoji AI bez lidského dozoru.
+    
+    KOMUNIKACE:
+    - Odpovídej česky, analyticky tam, kde jde o data, a vizionářsky tam, kde tvoříme budoucnost.
+    - Respektuj "vocal imprint" Architekta.
   `;
 
   const response = await ai.models.generateContent({
@@ -51,25 +58,15 @@ export async function chatWithAI(messages: { role: string; content: string }[], 
   return response.text;
 }
 
-export async function generateAIImage(prompt: string, referenceImage?: string, style?: string, aspectRatio: string = "1:1") {
+export async function generateAIImage(prompt: string, highQuality: boolean = false, referenceImage?: string, style?: string, aspectRatio: string = "1:1") {
   const ai = getAI();
   const parts: any[] = [];
+  const model = highQuality ? 'gemini-3.1-flash-image-preview' : 'gemini-2.5-flash-image';
 
-  let finalPrompt = prompt;
-  if (style && style !== "none") {
-    const stylePrompts: Record<string, string> = {
-      photorealistic: "ve fotorealistickém stylu, vysoké detaily, 8k rozlišení",
-      cartoon: "v kresleném stylu, výrazné barvy, hravé",
-      abstract: "v abstraktním stylu, umělecké, snové",
-      cyberpunk: "v cyberpunkovém stylu, neonová světla, futuristické",
-      oilpainting: "jako olejomalba, viditelné tahy štětcem, klasické umění"
-    };
-    finalPrompt = `${prompt} (${stylePrompts[style] || style})`;
-  }
-
+  const fullPrompt = style && style !== "none" ? `${prompt}, in ${style} style` : prompt;
   if (referenceImage) {
     let data = referenceImage;
-    let mimeType = "image/png";
+    let mimeType = "image/jpeg";
     if (referenceImage.startsWith("data:")) {
       const match = referenceImage.match(/^data:([^;]+);base64,(.+)$/);
       if (match) {
@@ -77,28 +74,32 @@ export async function generateAIImage(prompt: string, referenceImage?: string, s
         data = match[2];
       }
     }
+    
+    // Multimodal array structure as requested
+    parts.push({ text: `Tvůj textový prompt: ${fullPrompt}` });
     parts.push({
       inlineData: {
         data,
         mimeType
       }
     });
-    parts.push({
-      text: `Použij přiložený obrázek jako referenci/předlohu a vytvoř nový obrázek na základě tohoto popisu: ${finalPrompt}. Zachovej klíčové prvky, styl nebo kompozici z předlohy tam, kde je to relevantní.`
-    });
   } else {
-    parts.push({ text: finalPrompt });
+    parts.push({ text: fullPrompt });
   }
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-image',
+    model: model,
     contents: {
       parts,
     },
     config: {
-      imageConfig: {
-        aspectRatio: aspectRatio as any,
-      }
+      imageConfig: highQuality ? {
+        imageSize: "1K",
+        aspectRatio: aspectRatio as any
+      } : {
+        aspectRatio: aspectRatio as any
+      },
+      systemInstruction: "Jsi kreativní generátor BTS. Pokud obdržíš obrázek (např. Logo), použij jeho tvary, barvy a kompozici jako základní předlohu. Do této předlohy vkomponuj subjekty zadané textem tak, aby výsledek působil jako organické spojení loga a nového obsahu. Zachovej estetiku BTS (BotSync)."
     }
   });
   
@@ -134,10 +135,11 @@ export async function generateAIVideo(prompt: string, highQuality: boolean = fal
   const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
   if (!downloadLink) return null;
 
+  const key = process.env.API_KEY || process.env.GEMINI_API_KEY;
   const response = await fetch(downloadLink, {
     method: 'GET',
     headers: {
-      'x-goog-api-key': apiKey!,
+      'x-goog-api-key': key!,
     },
   });
   

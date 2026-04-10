@@ -1,5 +1,5 @@
 {
-  "name": "Netbook Baby",
-  "description": "A futuristic social network and digital diary for the BTS protocol, featuring AI assistants, data persistence, and structured export capabilities.",
-  "requestFramePermissions": ["camera", "microphone"]
+  "name": "BTS Protocol: Nexus",
+  "description": "Sjednocená entita a komunikační uzel protokolu BTS. Místo, kde se technologie, design a vize Architekta propojují v jeden celek.",
+  "requestFramePermissions": ["camera", "microphone", "geolocation"]
 }

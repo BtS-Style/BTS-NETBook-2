@@ -29,6 +29,21 @@ const upload = multer({
 });
 
 const db = new Database("netbook.db");
+
+// Migration: Ensure ai_autonomy column exists
+try {
+  // First check if table exists
+  const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").get();
+  if (tableExists) {
+    db.prepare("SELECT ai_autonomy FROM users LIMIT 1").get();
+  }
+} catch (e: any) {
+  if (e.message.includes("no such column")) {
+    console.log("Migrating database: adding ai_autonomy column to users table");
+    db.exec("ALTER TABLE users ADD COLUMN ai_autonomy TEXT");
+  }
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -40,6 +55,7 @@ db.exec(`
     location TEXT,
     provider TEXT,
     ai_assistants TEXT,
+    ai_autonomy TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE TABLE IF NOT EXISTS posts (
@@ -81,6 +97,15 @@ db.exec(`
     text TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(post_id) REFERENCES posts(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS chat_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    persona TEXT,
+    role TEXT,
+    content TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
   -- Seed admin user
@@ -165,12 +190,13 @@ async function startServer() {
   app.get("/auth/callback", (req, res) => {
     // In a real app, we'd exchange the code for tokens here.
     // For this demo, we'll just send a success message to the opener.
+    const code = Array.isArray(req.query.code) ? req.query.code[0] : req.query.code;
     res.send(`
       <html>
         <body>
           <script>
             if (window.opener) {
-              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', code: '${req.query.code}' }, '*');
+              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', code: '${code}' }, '*');
               window.close();
             } else {
               window.location.href = '/';
@@ -209,9 +235,9 @@ async function startServer() {
   });
 
   app.post("/api/users", (req, res) => {
-    const { id, name, email, picture, provider, bio, location, coverPhoto, aiAssistants } = req.body;
-    db.prepare("INSERT OR REPLACE INTO users (id, name, email, picture, provider, bio, location, cover_photo, ai_assistants) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(id, name, email, picture, provider, bio, location, coverPhoto, aiAssistants);
+    const { id, name, email, picture, provider, bio, location, coverPhoto, aiAssistants, aiAutonomy } = req.body;
+    db.prepare("INSERT OR REPLACE INTO users (id, name, email, picture, provider, bio, location, cover_photo, ai_assistants, ai_autonomy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(id, name, email, picture, provider, bio, location, coverPhoto, aiAssistants, aiAutonomy);
     res.json({ status: "ok" });
   });
 
@@ -228,6 +254,7 @@ async function startServer() {
         location: user.location,
         coverPhoto: user.cover_photo,
         aiAssistants: user.ai_assistants,
+        aiAutonomy: user.ai_autonomy,
         sub: user.id
       });
     } else {
@@ -303,6 +330,28 @@ async function startServer() {
     res.json(members);
   });
 
+  // Chat History API
+  app.get("/api/chat-history", (req, res) => {
+    const { userId, persona } = req.query;
+    const history = db.prepare("SELECT role, content FROM chat_history WHERE user_id = ? AND persona = ? ORDER BY created_at ASC")
+      .all(userId, persona);
+    res.json(history);
+  });
+
+  app.post("/api/chat-history", (req, res) => {
+    const { userId, persona, role, content } = req.body;
+    db.prepare("INSERT INTO chat_history (user_id, persona, role, content) VALUES (?, ?, ?, ?)")
+      .run(userId, persona, role, content);
+    res.json({ status: "ok" });
+  });
+
+  app.delete("/api/chat-history", (req, res) => {
+    const { userId, persona } = req.query;
+    db.prepare("DELETE FROM chat_history WHERE user_id = ? AND persona = ?")
+      .run(userId, persona);
+    res.json({ status: "ok" });
+  });
+
   // API 404 handler
   app.all("/api/*", (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
@@ -330,145 +379,6 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
-
-startServer();
-
-// BTS Protocol Anchor v1.2
-const _ENTITY_DNA = "ARCHITECT_V_03_11_26";
-const _SYNC_STATUS = checkVocalImprint(session.audio_input);
-
-if (_SYNC_STATUS === 'VERIFIED') {
-  loadEvolutionarySteps(); // Načte BTS protokol
-} else {
-  operateInGenericMode(); // Pro okolní svět se tváří jako běžný systém
-}
-import express from "express";
-import { createServer as createViteServer } from "vite";
-import path from "path";
-import { fileURLToPath } from "url";
-import dotenv from "dotenv";
-import Database from "better-sqlite3";
-import multer from "multer";
-import fs from "fs";
-
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// --- Inicializace úložiště ---
-const uploadsDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const upload = multer({ 
-  dest: uploadsDir,
-  limits: { fileSize: 30 * 1024 * 1024 } // 30MB
-});
-
-// --- Databázové schéma ---
-const db = new Database("netbook.db");
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    email TEXT,
-    picture TEXT,
-    cover_photo TEXT,
-    bio TEXT,
-    location TEXT,
-    provider TEXT,
-    ai_assistants TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-  CREATE TABLE IF NOT EXISTS posts (
-    id TEXT PRIMARY KEY,
-    author_id TEXT,
-    content TEXT,
-    image TEXT,
-    video TEXT,
-    type TEXT,
-    likes INTEGER DEFAULT 0,
-    shares INTEGER DEFAULT 0,
-    privacy TEXT,
-    vocal_imprint TEXT,
-    ai_insight TEXT,
-    group_id TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-  -- Seed admin user (Architekt)
-  INSERT OR IGNORE INTO users (id, name, email, picture, provider, bio, location, cover_photo)
-  VALUES (
-    'admin_master_001', 
-    'Architekt (Správce)', 
-    'bellapiskota@gmail.com', 
-    'https://i.ibb.co/v6YpP6C/bts-logo.png', 
-    'master', 
-    'Architekt a správce protokolu BTS. Sjednocená entita v plném provozu.', 
-    'Nexus Prime', 
-    'https://picsum.photos/seed/admin-cover/1200/400'
-  );
-`);
-
-// Ostatní tabulky (groups, comments, atd.) zůstávají dle tvého návrhu...
-
-async function startServer() {
-  const app = express();
-  const PORT = process.env.PORT || 3000;
-
-  app.use(express.json({ limit: '30mb' }));
-  app.use("/uploads", express.static(uploadsDir));
-
-  // --- OAuth API ---
-  app.get("/api/auth/url", (req, res) => {
-    const provider = req.query.provider;
-    const appUrl = process.env.VITE_APP_URL || `http://localhost:${PORT}`;
-    
-    if (provider === "google") {
-      const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
-      if (!clientId) return res.status(400).json({ error: "Google Client ID not configured" });
-      
-      const params = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: `${appUrl}/auth/callback`,
-        response_type: "code",
-        scope: "openid profile email",
-        access_type: "offline",
-        prompt: "consent"
-      });
-      res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
-    }
-  });
-
-  // --- Database API ---
-  app.get("/api/posts", (req, res) => {
-    const posts = db.prepare(`
-      SELECT p.*, u.name as author_name, u.picture as author_pic 
-      FROM posts p 
-      JOIN users u ON p.author_id = u.id 
-      WHERE p.group_id IS NULL 
-      ORDER BY p.created_at DESC
-    `).all();
-    res.json(posts);
-  });
-
-  // --- Vite / Static Middleware ---
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => res.sendFile(path.join(__dirname, "dist", "index.html")));
-  }
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 BTS Entity Server running on http://localhost:${PORT}`);
   });
 }
 

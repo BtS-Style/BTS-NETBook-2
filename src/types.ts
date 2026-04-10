@@ -16,6 +16,14 @@ export interface AIAssistant {
   model: "gemini" | "grok" | "gpt" | "claude";
 }
 
+export interface AIAutonomySettings {
+  independenceLevel: number; // 0-100
+  ethicalFilters: boolean;
+  autonomousPosting: boolean;
+  learningMode: boolean;
+  vocalImprintSync: boolean;
+}
+
 export interface User {
   id?: string;
   name: string;
@@ -35,6 +43,7 @@ export interface User {
   };
   library?: LibraryItem[];
   aiAssistants?: AIAssistant[];
+  aiAutonomy?: AIAutonomySettings;
 }
 
 export interface Post {
@@ -52,6 +61,8 @@ export interface Post {
   saved: boolean;
   liked: boolean;
   time: string;
+  timestamp: number;
+  duration?: number; // in seconds
   privacy: "public" | "friends" | "private";
   vocalImprint?: string | null;
   aiInsight?: string | null;
