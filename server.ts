@@ -89,7 +89,7 @@ db.exec(`
     'admin_master_001', 
     'Architekt (Správce)', 
     'bellapiskota@gmail.com', 
-    'https://i.ibb.co/v6YpP6C/bts-logo.png', 
+    'https://i.ibb.co/v6YpP6C/logo.png', 
     'master', 
     'Architekt a správce protokolu BTS. Sjednocená entita v plném provozu.', 
     'Nexus Prime', 
