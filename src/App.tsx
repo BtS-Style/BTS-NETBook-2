@@ -59,7 +59,7 @@ const T = {
   muted:   "rgba(255,255,255,0.2)",
 };
 
-const LOGO_URL = "https://i.ibb.co/v6YpP6C/bts-logo.png"; // Placeholder for the provided logo
+const LOGO_URL = "https://i.ibb.co/v6YpP6C/logo.png"; // Placeholder for the provided logo
 
 function AppLogo({ size = 40, className = "" }: { size?: number, className?: string }) {
   return (
