@@ -65,7 +65,7 @@ function AppLogo({ size = 40, className = "" }: { size?: number, className?: str
   return (
     <img 
       src={LOGO_URL} 
-      alt="BTS Logo" 
+      alt="Logo.png" 
       style={{ width: size, height: size, objectFit: "contain" }} 
       className={`drop-shadow-[0_0_10px_rgba(139,92,246,0.5)] ${className}`}
       referrerPolicy="no-referrer"
